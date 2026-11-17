@@ -14,24 +14,75 @@ vanilla HTML / CSS / JavaScript front end served by FastAPI.
 
 ## Requirements
 
-Python **3.12** (the project venv uses 3.12), Docker Desktop.
+Docker Desktop. For local development outside Docker: Python **3.12**.
 
-## Quick start
+## Quick start (everything in containers)
+
+Put the Telco CSV at `data/raw/Telco-Customer-Churn.csv` (see `data/README.md`), then:
 
 ```bash
 cp .env.example .env
-docker compose up -d --wait db redis    # PostgreSQL 17 on :5433, Redis 7 on :6379
+docker compose build backend
+docker compose build frontend
+docker compose up -d
+```
+
+> Build the two images one at a time, as above. In a folder whose path contains non-ASCII characters
+> (this repo's is `Prédiction du Churn Client`), `docker compose up --build` / `docker compose build`
+> fail with `x-docker-expose-session-sharedkey ... non-printable ASCII characters`, because BuildKit
+> builds several images in one session. Building one image per command avoids it, as does cloning
+> the repo into a folder with an ASCII name.
+
+Open **http://localhost:8080** (API docs at `/docs`, API under `/api`). The first start takes a few
+minutes: the `init` job loads the customers, trains the model (~2 min) and scores everyone. Later
+starts take seconds, because training is skipped when the model already exists in its volume.
+
+```
+browser --> frontend (nginx :8080) --/api--> backend (FastAPI :8000) --> db (PostgreSQL)
+                                                                    \-> redis (cache)
+            init (one-shot: ingest -> train if no model -> precompute), backend waits for it
+```
+
+| Service | Image | Notes |
+|---|---|---|
+| `frontend` | nginx (unprivileged) | serves `frontend/`, proxies `/api`, `/docs` to the backend; same origin, so no CORS |
+| `backend` | python:3.12-slim | FastAPI/uvicorn, non-root, healthcheck on `/api/health` |
+| `init` | same as backend | `python -m src.bootstrap`; restarts are cheap, safe to re-run. Trains inside the container, so its model differs slightly from one trained on another OS |
+| `db` | postgres:17 | volume `pgdata` |
+| `redis` | redis:7-alpine | 128 MB, LRU, no persistence |
+
+Useful commands:
+
+```bash
+docker compose logs -f backend            # follow the API logs
+docker compose run --rm init              # re-run the setup job by hand (it also runs on every `up`)
+docker compose exec backend python -m src.models.train   # retrain (restart backend afterwards)
+docker compose restart backend            # pick up a newly trained model
+docker compose down                       # stop (data kept); add -v to also delete the DB and model volumes
+```
+
+- The model lives in the `models` volume and the data in `pgdata`; the images contain only code.
+- Package versions in the image are pinned by `constraints.txt` (the versions the tests ran on).
+- `docker-compose.override.yml` is applied automatically and adds dev conveniences: DB on host port
+  **5433**, Redis on **6379**, and `frontend/` mounted live (edit and refresh, no rebuild). For a
+  production-like run without it: `docker compose -f docker-compose.yml up -d` (after building).
+  Those published ports are bound to `127.0.0.1` only: the database and the password-less Redis are
+  not reachable from other machines.
+- Credentials in `.env.example` are development-only.
+
+## Local development without Docker
+
+```bash
+docker compose up -d --wait db redis    # only the data services (ports published by the override)
 py -3.12 -m venv .venv && .venv/Scripts/activate   # Windows; use .venv/bin/activate elsewhere
 pip install -r requirements-ml.txt
-python -m src.data.ingest               # create tables + load 7,043 customers (idempotent)
-python -m src.models.train              # ~2 min: tunes XGBoost, writes models/churn_model.joblib
-python -m src.models.precompute         # score + SHAP for every customer (~10 s, idempotent)
-uvicorn app.api:app --reload            # http://localhost:8000/docs
+python -m src.bootstrap                 # ingest + train (if needed) + precompute
+uvicorn app.api:app --reload            # http://127.0.0.1:8000/docs
 pytest
 ```
 
-PostgreSQL uses host port **5433** so it does not clash with a locally installed PostgreSQL on 5432.
-Credentials in `.env.example` are development-only.
+Use `127.0.0.1` rather than `localhost` (as `.env.example` does): on Windows `localhost` tries IPv6
+first, which adds ~0.2 s per request and makes connections to the loopback-only database ports very slow.
 
 ## Model
 
@@ -72,7 +123,9 @@ In practice both methods take only tens of milliseconds per customer here.
 - Concurrent identical requests share one computation (short lock).
 - `/api/stats/overview` is cached for 60 s and cleared by `ingest`.
 - **Redis is optional**: if it is down, requests are computed directly (`/api/health` reports
-  `"cache": "down"`), and Redis is skipped for 10 s to avoid repeated connect timeouts.
+  `"cache": "down"`). Once an outage is detected, requests skip Redis instantly and a background
+  thread probes for its return. Only the one request that first notices the outage can be slow (up to
+  ~4 s in Docker, where a stopped container's hostname takes that long to fail to resolve).
 - PostgreSQL is the durable record: every prediction and its explanations are stored; Redis only
   accelerates repeats.
 

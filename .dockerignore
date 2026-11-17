@@ -1,0 +1,21 @@
+# Keep the build context small and free of secrets / local state
+.git
+.venv
+.env
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ipynb_checkpoints
+
+# Data and model artefacts are mounted/volumes at runtime, never baked into images
+data
+models
+reports
+notebooks
+tests
+graphify-out
+
+# Not needed inside images
+docker-compose*.yml
+README.md
+LICENSE

@@ -1,3 +1,28 @@
+# Whole stack:  docker compose up -d --build     then open http://localhost:8080
+#
+#   frontend (nginx) --/api--> backend (FastAPI) --> db (PostgreSQL)
+#                                       |--------> redis (cache)
+#   init: one-shot job (ingest -> train if no model -> precompute); backend waits for it.
+#
+# docker-compose.override.yml is applied automatically and adds dev conveniences (published DB and
+# Redis ports, live-mounted frontend/). For a production-like run without it:
+#   docker compose -f docker-compose.yml up -d --build
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: churn-backend
+  environment:
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-churn}:${POSTGRES_PASSWORD:-churn_dev}@db:5432/${POSTGRES_DB:-churn}
+    REDIS_URL: redis://redis:6379/0
+    TRAIN_TRIALS: ${TRAIN_TRIALS:-40}
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
 services:
   db:
     image: postgres:17
@@ -7,9 +32,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-churn}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-churn_dev}
       POSTGRES_DB: ${POSTGRES_DB:-churn}
-    ports:
-      # 5433 on the host so it never clashes with a locally installed Postgres on 5432
-      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,13 +46,47 @@ services:
     restart: unless-stopped
     # Pure cache: bounded memory, least-recently-used eviction, no persistence needed.
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  init:
+    <<: *backend
+    command: ["python", "-m", "src.bootstrap"]
+    restart: "no"
+    healthcheck:
+      disable: true   # a one-shot job, not a web server: the image's HTTP healthcheck does not apply
+    volumes:
+      - ./data/raw:/app/data/raw:ro   # the Telco CSV (git-ignored)
+      - models:/app/models            # trained model, shared with the backend
+
+  backend:
+    <<: *backend
+    restart: unless-stopped
+    volumes:
+      - models:/app/models:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    image: churn-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  models:

@@ -126,7 +126,9 @@ def train(n_trials: int = 40) -> dict:
     threshold = report[chosen]["test"]["threshold"]
 
     trained_at = datetime.now(timezone.utc)
-    digest = hashlib.sha1(json.dumps([chosen, best_params, SEED], sort_keys=True).encode()).hexdigest()[:8]
+    # Hash of the trained booster itself: a different model must never share a version string,
+    # because cache keys and stored predictions are scoped by it.
+    digest = hashlib.sha1(pipeline.named_steps["model"].get_booster().save_raw("ubj")).hexdigest()[:8]
     version = f"{chosen.split('_')[0]}-{trained_at:%Y%m%d}-{digest}"
     categories = {
         feat: [str(c) for c in cats]

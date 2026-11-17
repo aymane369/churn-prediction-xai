@@ -63,6 +63,20 @@ def test_invalidate_removes_matching_keys():
     assert cache.get_or_compute(key, lambda: 2, ttl=30) == (2, False)
 
 
+@needs_redis
+def test_marked_down_skips_redis_instantly_and_recovers_in_background(monkeypatch):
+    monkeypatch.setattr(cache, "RETRY_AFTER", 0.1)
+    cache._mark_down(RuntimeError("simulated outage"))
+    assert cache._redis() is None  # requests skip Redis without any network access
+    assert cache.get_or_compute("anything", lambda: 7) == (7, False)
+
+    deadline = time.monotonic() + 5
+    while cache._down and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert cache._down is False  # the background probe noticed Redis is reachable
+    assert cache.ping() is True
+
+
 def test_works_without_redis(monkeypatch):
     monkeypatch.setattr(cache, "_redis", lambda: None)
     assert cache.get_or_compute("anything", lambda: 5) == (5, False)

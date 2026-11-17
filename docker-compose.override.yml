@@ -1,0 +1,16 @@
+# Applied automatically by `docker compose up` (development conveniences).
+# Skip it with:  docker compose -f docker-compose.yml up -d
+services:
+  # Bound to 127.0.0.1 so other machines on the network cannot reach the database or the
+  # (password-less) Redis; only host-side tools on this computer can.
+  db:
+    ports:
+      # 5433 on the host so it never clashes with a locally installed PostgreSQL on 5432
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+  redis:
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+  frontend:
+    volumes:
+      # Edit frontend/ and just refresh the browser: no rebuild needed
+      - ./frontend:/usr/share/nginx/html:ro
