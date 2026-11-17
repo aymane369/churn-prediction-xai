@@ -8,6 +8,10 @@
 # Redis ports, live-mounted frontend/). For a production-like run without it:
 #   docker compose -f docker-compose.yml up -d --build
 
+# Fixed project name: without it Compose derives one from the folder name, so renaming or
+# re-cloning the repo silently creates new, empty volumes.
+name: churn-xai
+
 x-backend: &backend
   build:
     context: .

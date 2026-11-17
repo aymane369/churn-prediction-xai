@@ -22,16 +22,15 @@ Put the Telco CSV at `data/raw/Telco-Customer-Churn.csv` (see `data/README.md`),
 
 ```bash
 cp .env.example .env
-docker compose build backend
-docker compose build frontend
-docker compose up -d
+docker compose up -d --build
 ```
 
-> Build the two images one at a time, as above. In a folder whose path contains non-ASCII characters
-> (this repo's is `Prédiction du Churn Client`), `docker compose up --build` / `docker compose build`
-> fail with `x-docker-expose-session-sharedkey ... non-printable ASCII characters`, because BuildKit
-> builds several images in one session. Building one image per command avoids it, as does cloning
-> the repo into a folder with an ASCII name.
+> **Keep the repository path ASCII-only.** On Windows, building several images from a folder whose
+> path contains accented characters (e.g. `Prédiction`) fails with
+> `x-docker-expose-session-sharedkey ... non-printable ASCII characters`. This is a Docker BuildKit
+> limitation, not a project bug; `COMPOSE_BAKE=false` does not help. If you cannot rename the folder,
+> build one image per command (`docker compose build backend`, `docker compose build frontend`)
+> and then run `docker compose up -d`.
 
 Open **http://localhost:8080** (API docs at `/docs`, API under `/api`). The first start takes a few
 minutes: the `init` job loads the customers, trains the model (~2 min) and scores everyone. Later
@@ -62,6 +61,9 @@ docker compose down                       # stop (data kept); add -v to also del
 ```
 
 - The model lives in the `models` volume and the data in `pgdata`; the images contain only code.
+  The Compose project is named `churn-xai` in `docker-compose.yml`, so the volumes are
+  `churn-xai_models` / `churn-xai_pgdata` whatever the folder is called (without a fixed name,
+  renaming the folder would silently start over with empty volumes).
 - Package versions in the image are pinned by `constraints.txt` (the versions the tests ran on).
 - `docker-compose.override.yml` is applied automatically and adds dev conveniences: DB on host port
   **5433**, Redis on **6379**, and `frontend/` mounted live (edit and refresh, no rebuild). For a
