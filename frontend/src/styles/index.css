@@ -230,7 +230,9 @@
   }
 }
 
-/* ---- Landing: slow orbits (paused on hover/focus; static under prefers-reduced-motion) ---- */
+/* ---- Landing: slow orbits (static under prefers-reduced-motion) ----
+   They hold still only while the pointer is ON a customer (so it stays under the cursor) or a customer
+   has keyboard focus. Not whenever the pointer is merely over the visual, and not after a click. */
 @keyframes orbit {
   to {
     transform: rotate(360deg);
@@ -242,10 +244,10 @@
 .orbit-counter {
   animation: orbit var(--orbit-d, 120s) linear infinite reverse;
 }
-.constellation:hover .orbit,
-.constellation:hover .orbit-counter,
-.constellation:focus-within .orbit,
-.constellation:focus-within .orbit-counter {
+.constellation:has(.member:hover) .orbit,
+.constellation:has(.member:hover) .orbit-counter,
+.constellation:has(.member button:focus-visible) .orbit,
+.constellation:has(.member button:focus-visible) .orbit-counter {
   animation-play-state: paused;
 }
 
