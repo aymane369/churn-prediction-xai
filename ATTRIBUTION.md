@@ -11,7 +11,8 @@ package's own metadata (`node_modules/<package>/package.json`) at the versions l
 | Manrope (UI typeface) | Mikhail Sharanda, via [Fontsource](https://fontsource.org/) | SIL Open Font Licence 1.1 | Self-hosted (`@fontsource-variable/manrope`); no Google Fonts requests. |
 | Fraunces (editorial typeface) | Undercase Type (Phaedra Charles, Flavia Zimbardi), via Fontsource | SIL Open Font Licence 1.1 | Self-hosted (`@fontsource-variable/fraunces`), roman and italic, optical-size axis. |
 | Icons | [Lucide](https://lucide.dev/) | ISC | `lucide-react`. |
-| Logo mark, hero visual, gauge, charts | Original to this project | n/a | Drawn in SVG/CSS; no stock imagery. |
+| Dashboard header illustration ("reaching for a departing customer") | Supplied by the project owner as `Churn.png` | **Not recorded: the owner should confirm the author and licence** | Processed by `scripts/prepare_churn_illustration.py` (background made transparent, split into animatable layers in `frontend/src/assets/churn/`). The artwork itself is unchanged. |
+| Logo mark, landing hero visual, gauge, charts | Original to this project | n/a | Drawn in SVG/CSS; no stock imagery. |
 
 The grain texture is an inline SVG `feTurbulence` filter (generated, not an image file).
 

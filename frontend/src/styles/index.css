@@ -248,3 +248,14 @@
 .constellation:focus-within .orbit-counter {
   animation-play-state: paused;
 }
+
+/* Lead paragraph under page titles: the editorial serif at a firmer weight, in full-strength ink */
+@utility lead {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 550;
+  font-size: clamp(1.15rem, 1.5vw, 1.35rem);
+  line-height: 1.4;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}

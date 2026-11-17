@@ -24,7 +24,8 @@ export function CustomerCard({ customer: c, index, back }: { customer: Customer;
       >
         {/* A band tinted from the same seed as the avatar: each customer gets a consistent colour identity */}
         <div className="relative h-16" style={{ background: `linear-gradient(120deg, ${tint.soft}, ${tint.deep}33)` }} aria-hidden="true" />
-        <div className="-mt-9 flex items-end justify-between px-5">
+        {/* relative z-10: the banner above is positioned, so without its own layer it would paint over the avatar */}
+        <div className="relative z-10 -mt-9 flex items-end justify-between px-5">
           <Avatar seed={c.avatar_seed} name={c.username} size={64} decorative layoutId={`avatar-${c.id}`} className="ring-2 ring-paper" />
           <RiskBadge risk={c.risk} long className="mb-1" />
         </div>

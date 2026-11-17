@@ -85,10 +85,10 @@ export function CustomerFilters({ state, update, onClear }: { state: DirectorySt
           aria-label="View"
           className="h-11 gap-1 rounded-full border border-line-strong bg-paper p-1"
         >
-          <ToggleGroupItem value="cards" aria-label="Card view" className="rounded-full px-3.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          <ToggleGroupItem value="cards" className="rounded-full px-3.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
             <LayoutGrid className="size-4" /> <span className="text-sm font-semibold">Cards</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="table" aria-label="Table view" className="rounded-full px-3.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          <ToggleGroupItem value="table" className="rounded-full px-3.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
             <Table2 className="size-4" /> <span className="text-sm font-semibold">Table</span>
           </ToggleGroupItem>
         </ToggleGroup>

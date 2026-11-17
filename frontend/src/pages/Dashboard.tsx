@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ErrorState } from '@/components/states'
 import { Reveal } from '@/components/Reveal'
+import { ChurnIllustration } from '@/features/dashboard/ChurnIllustration'
 import { KpiStrip } from '@/features/dashboard/KpiStrip'
 import { RiskHistogram } from '@/features/dashboard/RiskHistogram'
 import { SegmentBars } from '@/features/dashboard/SegmentBars'
@@ -78,6 +79,7 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader
+        aside={<ChurnIllustration />}
         eyebrow="Customer intelligence"
         title={
           <>
