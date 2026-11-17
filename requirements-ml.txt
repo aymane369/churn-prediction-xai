@@ -1,0 +1,13 @@
+-r requirements.txt
+
+# Modelling
+scikit-learn>=1.5
+xgboost>=2.1
+imbalanced-learn>=0.12
+optuna>=4.0
+joblib>=1.4
+
+# Explainability
+shap>=0.46
+lime>=0.2.0.1
+dice-ml>=0.11

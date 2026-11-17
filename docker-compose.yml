@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17
+    container_name: churn-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-churn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-churn_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-churn}
+    ports:
+      # 5433 on the host so it never clashes with a locally installed Postgres on 5432
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-churn} -d ${POSTGRES_DB:-churn}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

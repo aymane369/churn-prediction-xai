@@ -1,0 +1,13 @@
+# Core: API, database, data handling (Phase 1)
+fastapi>=0.115
+uvicorn[standard]>=0.32
+sqlalchemy>=2.0
+psycopg[binary]>=3.2
+pydantic-settings>=2.6
+pandas>=2.2
+
+# Dev
+pytest>=8.3
+httpx>=0.27
+
+# ML + explainability (Phase 2) live in requirements-ml.txt
