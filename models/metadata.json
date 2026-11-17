@@ -1,0 +1,208 @@
+{
+  "model_version": "xgboost-20261117-f6239cb7",
+  "algorithm": "xgboost_tuned",
+  "trained_at": "2026-11-17T12:08:32+00:00",
+  "threshold": 0.34497755765914917,
+  "seed": 42,
+  "n_train": 5634,
+  "n_test": 1409,
+  "churn_rate": 0.2653698707936959,
+  "best_params": {
+    "n_estimators": 450,
+    "learning_rate": 0.04909121659672581,
+    "max_depth": 4,
+    "min_child_weight": 7,
+    "subsample": 0.6287710908681934,
+    "colsample_bytree": 0.7036822088531017,
+    "reg_lambda": 0.7628246483834152,
+    "reg_alpha": 0.32991360760713206,
+    "gamma": 4.929097636225466
+  },
+  "features": [
+    "gender",
+    "multiple_lines",
+    "internet_service",
+    "online_security",
+    "online_backup",
+    "device_protection",
+    "tech_support",
+    "streaming_tv",
+    "streaming_movies",
+    "contract",
+    "payment_method",
+    "senior_citizen",
+    "partner",
+    "dependents",
+    "phone_service",
+    "paperless_billing",
+    "tenure",
+    "monthly_charges",
+    "total_charges"
+  ],
+  "categories": {
+    "gender": [
+      "Female",
+      "Male"
+    ],
+    "multiple_lines": [
+      "No",
+      "No phone service",
+      "Yes"
+    ],
+    "internet_service": [
+      "DSL",
+      "Fiber optic",
+      "No"
+    ],
+    "online_security": [
+      "No",
+      "No internet service",
+      "Yes"
+    ],
+    "online_backup": [
+      "No",
+      "No internet service",
+      "Yes"
+    ],
+    "device_protection": [
+      "No",
+      "No internet service",
+      "Yes"
+    ],
+    "tech_support": [
+      "No",
+      "No internet service",
+      "Yes"
+    ],
+    "streaming_tv": [
+      "No",
+      "No internet service",
+      "Yes"
+    ],
+    "streaming_movies": [
+      "No",
+      "No internet service",
+      "Yes"
+    ],
+    "contract": [
+      "Month-to-month",
+      "One year",
+      "Two year"
+    ],
+    "payment_method": [
+      "Bank transfer (automatic)",
+      "Credit card (automatic)",
+      "Electronic check",
+      "Mailed check"
+    ]
+  },
+  "metrics": {
+    "logistic_regression": {
+      "cv": {
+        "roc_auc": 0.8455188875538256,
+        "pr_auc": 0.6569865670379358,
+        "brier": 0.16526050222131355,
+        "threshold": 0.5753979347232165,
+        "accuracy": 0.776180333688321,
+        "precision": 0.5587349397590361,
+        "recall": 0.7444816053511706,
+        "f1": 0.6383710926297677,
+        "confusion": {
+          "tn": 3260,
+          "fp": 879,
+          "fn": 382,
+          "tp": 1113
+        }
+      },
+      "test": {
+        "roc_auc": 0.8416569789971324,
+        "pr_auc": 0.6327928039825778,
+        "brier": 0.1686843299701104,
+        "threshold": 0.5753979347232165,
+        "accuracy": 0.7622427253371186,
+        "precision": 0.5387673956262425,
+        "recall": 0.7245989304812834,
+        "f1": 0.6180159635119726,
+        "confusion": {
+          "tn": 803,
+          "fp": 232,
+          "fn": 103,
+          "tp": 271
+        }
+      }
+    },
+    "xgboost_default": {
+      "cv": {
+        "roc_auc": 0.823839471347271,
+        "pr_auc": 0.6288360532340522,
+        "brier": 0.14921028912067413,
+        "threshold": 0.30345970392227173,
+        "accuracy": 0.7665956691515797,
+        "precision": 0.5478723404255319,
+        "recall": 0.6889632107023411,
+        "f1": 0.6103703703703703,
+        "confusion": {
+          "tn": 3289,
+          "fp": 850,
+          "fn": 465,
+          "tp": 1030
+        }
+      },
+      "test": {
+        "roc_auc": 0.8215311684621148,
+        "pr_auc": 0.6160694771525296,
+        "brier": 0.15013115108013153,
+        "threshold": 0.30345970392227173,
+        "accuracy": 0.7622427253371186,
+        "precision": 0.5398773006134969,
+        "recall": 0.7058823529411765,
+        "f1": 0.6118192352259559,
+        "confusion": {
+          "tn": 810,
+          "fp": 225,
+          "fn": 110,
+          "tp": 264
+        }
+      }
+    },
+    "xgboost_tuned": {
+      "cv": {
+        "roc_auc": 0.8507782646673578,
+        "pr_auc": 0.6699491143912847,
+        "brier": 0.1328551322221756,
+        "threshold": 0.34497755765914917,
+        "accuracy": 0.7870074547390842,
+        "precision": 0.5796866558616964,
+        "recall": 0.7177257525083612,
+        "f1": 0.6413628212791392,
+        "confusion": {
+          "tn": 3361,
+          "fp": 778,
+          "fn": 422,
+          "tp": 1073
+        }
+      },
+      "test": {
+        "roc_auc": 0.8491888191376683,
+        "pr_auc": 0.6656909435069701,
+        "brier": 0.13449954986572266,
+        "threshold": 0.34497755765914917,
+        "accuracy": 0.7792760823278921,
+        "precision": 0.5654885654885655,
+        "recall": 0.7272727272727273,
+        "f1": 0.6362573099415205,
+        "confusion": {
+          "tn": 826,
+          "fp": 209,
+          "fn": 102,
+          "tp": 272
+        }
+      }
+    }
+  },
+  "library_versions": {
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.1",
+    "numpy": "2.5.5"
+  }
+}

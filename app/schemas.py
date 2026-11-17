@@ -86,14 +86,16 @@ class PredictionInput(BaseModel):
 
 
 class FeatureContribution(BaseModel):
-    feature: str
-    value: str | float | int | bool | None
-    contribution: float  # positive pushes towards churn
+    feature: str  # snake_case key
+    label: str  # display name
+    value: str | float | int | None  # the customer's value for this feature
+    contribution: float  # positive pushes towards churn (SHAP: log-odds, LIME: probability)
+    rule: str | None = None  # LIME only, e.g. "Tenure (months) <= 9.00"
 
 
 class ExplanationOut(BaseModel):
     method: Literal["shap", "lime"]
-    base_value: float | None
+    base_value: float | None  # SHAP: log-odds baseline; LIME: surrogate intercept
     values: list[FeatureContribution]
 
 
@@ -101,5 +103,7 @@ class PredictionOut(BaseModel):
     prediction_id: int
     churn: bool
     probability: float
+    threshold: float
     model_version: str
+    cached: bool  # served from Redis (form) or already stored in PostgreSQL (customer)
     explanations: list[ExplanationOut]

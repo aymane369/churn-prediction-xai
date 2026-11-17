@@ -15,5 +15,16 @@ class Settings(BaseSettings):
     model_dir: Path = ROOT / "models"
     frontend_dir: Path = ROOT / "frontend"
 
+    redis_url: str = "redis://localhost:6379/0"
+    cache_ttl_seconds: int = 86400  # 24 h; keys also embed the model version
+
+    @property
+    def model_path(self) -> Path:
+        return self.model_dir / "churn_model.joblib"
+
+    @property
+    def metadata_path(self) -> Path:
+        return self.model_dir / "metadata.json"
+
 
 settings = Settings()

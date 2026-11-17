@@ -12,6 +12,7 @@ from src.data.preprocess import clean
 from src.db.init_db import init_db
 from src.db.models import Customer
 from src.db.session import SessionLocal
+from src.utils import cache
 
 BATCH = 1000
 
@@ -34,6 +35,7 @@ def ingest() -> tuple[int, int]:
             session.execute(stmt)
         session.commit()
         after = session.scalar(select(func.count()).select_from(Customer))
+    cache.invalidate("churn:stats:*")  # cached overview stats are now stale
     return len(records), after - before
 
 

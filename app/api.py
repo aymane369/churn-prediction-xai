@@ -1,6 +1,10 @@
 """FastAPI application.  Run from the project root:  uvicorn app.api:app --reload"""
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import case, func, select, text
 from sqlalchemy.orm import Session
@@ -14,17 +18,54 @@ from app.schemas import (
     PredictionInput,
     PredictionOut,
 )
-from src.db.models import Customer
+from src.db.models import Customer, Prediction
 from src.db.session import get_session
+from src.models.predict import ModelNotAvailable, load_bundle
+from src.models.service import customer_prediction, save_form_prediction, score_and_explain, warm_up
+from src.utils import cache
 from src.utils.config import settings
 
-app = FastAPI(title="Churn Prediction XAI", version="0.1.0")
+log = logging.getLogger("churn.api")
+
+STATS_TTL = 60  # seconds
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    try:
+        warm_up()  # load model + build explainers once, not on the first request
+    except ModelNotAvailable as exc:
+        log.warning("%s Prediction endpoints will return 503.", exc)
+    yield
+
+
+app = FastAPI(title="Churn Prediction XAI", version="0.2.0", lifespan=lifespan)
+
+
+@app.exception_handler(ModelNotAvailable)
+def model_missing(_: Request, exc: ModelNotAvailable) -> JSONResponse:
+    return JSONResponse({"detail": str(exc)}, status_code=503)
 
 
 @app.get("/api/health")
 def health(db: Session = Depends(get_session)) -> dict:
     db.execute(text("SELECT 1"))
-    return {"status": "ok", "database": "up"}
+    try:
+        model = load_bundle().version
+    except ModelNotAvailable:
+        model = None
+    return {
+        "status": "ok",
+        "database": "up",
+        "cache": "up" if cache.ping() else "down",  # the app works without it, just slower
+        "model": model,
+    }
+
+
+@app.get("/api/model")
+def model_info() -> dict:
+    """Metadata of the deployed model: version, threshold, metrics, feature categories."""
+    return load_bundle().metadata
 
 
 @app.get("/api/customers", response_model=CustomerPage)
@@ -51,16 +92,19 @@ def list_customers(
     return CustomerPage(total=total, limit=limit, offset=offset, items=rows)
 
 
-@app.get("/api/customers/{customer_id}", response_model=CustomerOut)
-def get_customer(customer_id: int, db: Session = Depends(get_session)) -> Customer:
+def _get_customer_or_404(db: Session, customer_id: int) -> Customer:
     customer = db.get(Customer, customer_id)
     if customer is None:
         raise HTTPException(404, "Customer not found")
     return customer
 
 
-@app.get("/api/stats/overview", response_model=Overview)
-def overview(db: Session = Depends(get_session)) -> Overview:
+@app.get("/api/customers/{customer_id}", response_model=CustomerOut)
+def get_customer(customer_id: int, db: Session = Depends(get_session)) -> Customer:
+    return _get_customer_or_404(db, customer_id)
+
+
+def _compute_overview(db: Session) -> dict:
     churn_int = case((Customer.churn, 1), else_=0)
     customers, churned, avg_monthly = db.execute(
         select(func.count(), func.sum(churn_int), func.avg(Customer.monthly_charges))
@@ -78,20 +122,48 @@ def overview(db: Session = Depends(get_session)) -> Overview:
         by_contract=[
             ContractStat(contract=c, customers=n, churn_rate=float(r)) for c, n, r in by_contract
         ],
+    ).model_dump()
+
+
+@app.get("/api/stats/overview", response_model=Overview)
+def overview(db: Session = Depends(get_session)) -> dict:
+    value, _ = cache.get_or_compute("churn:stats:overview", lambda: _compute_overview(db), ttl=STATS_TTL)
+    return value
+
+
+def _to_out(pred: Prediction, cached: bool) -> PredictionOut:
+    bundle = load_bundle()
+    return PredictionOut(
+        prediction_id=pred.id,
+        churn=pred.label,
+        probability=pred.probability,
+        threshold=bundle.threshold,
+        model_version=pred.model_version,
+        cached=cached,
+        explanations=[
+            ExplanationOut(method=e.method, base_value=e.base_value, values=e.values)
+            for e in sorted(pred.explanations, key=lambda e: e.method)
+        ],
     )
 
 
-# --- Model-dependent endpoints: stubs until the model and explainers are trained (Phase 2) ---
-
-
 @app.post("/api/predict", response_model=PredictionOut)
-def predict(payload: PredictionInput) -> PredictionOut:
-    raise HTTPException(501, "Model not trained yet")
+def predict(payload: PredictionInput, db: Session = Depends(get_session)) -> PredictionOut:
+    """Score a customer described by the form: label, probability, SHAP and LIME."""
+    result, cached = score_and_explain(payload.model_dump())
+    pred = save_form_prediction(db, payload.model_dump(), result)
+    return _to_out(pred, cached)
 
 
-@app.get("/api/customers/{customer_id}/explanation", response_model=list[ExplanationOut])
-def customer_explanation(customer_id: int) -> list[ExplanationOut]:
-    raise HTTPException(501, "Explainers not available yet")
+@app.get("/api/customers/{customer_id}/explanation", response_model=PredictionOut)
+def customer_explanation(customer_id: int, db: Session = Depends(get_session)) -> PredictionOut:
+    """Stored score and explanations for an existing customer (computed on first request).
+
+    Note: these customers were part of the model's training data, so their scores are in-sample.
+    """
+    customer = _get_customer_or_404(db, customer_id)
+    pred, stored = customer_prediction(db, customer)
+    return _to_out(pred, stored)
 
 
 # --- Front end: served only once it exists, so the API works without it ---
