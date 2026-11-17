@@ -1,7 +1,7 @@
 # churn-prediction-xai
 
 Customer churn prediction with explainable AI (SHAP, LIME), PostgreSQL storage, a Redis cache and a
-vanilla HTML / CSS / JavaScript front end served by FastAPI.
+React + TypeScript front end served by nginx.
 
 ## Status
 
@@ -10,7 +10,7 @@ vanilla HTML / CSS / JavaScript front end served by FastAPI.
 | 1 | PostgreSQL schema, data cleaning + ingestion, pseudonyms/avatar seeds, customer and stats API | done |
 | 2 | XGBoost model, SHAP + LIME, Redis cache, `/api/predict`, customer explanations | done |
 | 2b | Counterfactuals ("what would change this prediction?") with DiCE | not started |
-| 3 | Front end (`frontend/`) | not started |
+| 3 | Front end (`frontend/`): landing, dashboard, customer directory, profile with SHAP, what-if simulator | done |
 
 ## Requirements
 
@@ -66,8 +66,7 @@ docker compose down                       # stop (data kept); add -v to also del
   renaming the folder would silently start over with empty volumes).
 - Package versions in the image are pinned by `constraints.txt` (the versions the tests ran on).
 - `docker-compose.override.yml` is applied automatically and adds dev conveniences: DB on host port
-  **5433**, Redis on **6379**, and `frontend/` mounted live (edit and refresh, no rebuild). For a
-  production-like run without it: `docker compose -f docker-compose.yml up -d` (after building).
+  **5433** and Redis on **6379**. For a production-like run without it: `docker compose -f docker-compose.yml up -d` (after building).
   Those published ports are bound to `127.0.0.1` only: the database and the password-less Redis are
   not reachable from other machines.
 - Credentials in `.env.example` are development-only.
@@ -85,6 +84,46 @@ pytest
 
 Use `127.0.0.1` rather than `localhost` (as `.env.example` does): on Windows `localhost` tries IPv6
 first, which adds ~0.2 s per request and makes connections to the loopback-only database ports very slow.
+
+## Front end
+
+React 19 + TypeScript, Tailwind CSS 4, shadcn/ui (Radix), Motion, Recharts, DiceBear avatars, TanStack
+Query and React Router. Built with Vite inside `docker/frontend.Dockerfile` and served by nginx, which
+also proxies `/api` (one origin, no CORS) and adds a Content-Security-Policy.
+
+| Route | What it shows |
+|---|---|
+| `/` | Landing page. The hero uses real customers and real model scores (a clearly labelled "illustrative sample" appears only if the API is unreachable) |
+| `/dashboard` | KPIs, risk distribution, segments (drill into the directory), recent simulations, insights computed from the live numbers |
+| `/customers` | Searchable directory, cards or table, filters kept in the URL, server-side sort and paging |
+| `/customers/:id` | Profile: prediction vs observed outcome, SHAP waterfall, LIME cross-check, rule-based retention suggestions |
+| `/simulator` | What-if: edit attributes, ask the backend for a new prediction, compare SHAP before and after |
+
+Things the UI is careful about:
+
+- **SHAP is shown in log-odds** with the matching odds multiplier, never as percentage points. The maths
+  (and its unit tests) are in `frontend/src/lib/shap.ts`.
+- **Predictions, observed outcomes and hypotheticals are visibly different things.** What-if results are
+  labelled hypothetical and are never presented as causal; retention suggestions are labelled as
+  rule-based ideas, not proven interventions.
+- **Honest data states**: loading skeletons, empty states and error states for every request; no mock data.
+- **Accessibility**: skip link, visible focus rings, text colours measured at ≥ 4.5:1 on the page colours,
+  chart data also available as tables, `prefers-reduced-motion` respected.
+- **Pseudonyms**: customers are shown by the generated `@username` and avatar, never as a "real name".
+
+Development (Node 22+):
+
+```bash
+cd frontend
+npm ci
+npm run dev        # http://localhost:5173, proxies /api to a local uvicorn on :8000
+                   # to use the Docker stack instead:  API_URL=http://127.0.0.1:8080 npm run dev
+                   # (PowerShell:  $env:API_URL="http://127.0.0.1:8080"; npm run dev)
+npm test           # Vitest: SHAP maths, URL state, simulator rules, suggestion rules
+npm run build      # type-check, then build to frontend/dist
+```
+
+Assets, fonts and libraries, with their licences: [ATTRIBUTION.md](ATTRIBUTION.md).
 
 ## Notebooks
 
@@ -153,7 +192,7 @@ src/features/   model input definition and display labels
 src/models/     train, evaluate, predict (artefact loading), service (cache + DB), precompute
 src/explain/    SHAP and LIME explainers
 src/utils/      config, Redis cache helper
-frontend/       vanilla HTML/CSS/JS; mounted at / automatically once index.html exists
+frontend/       React + TypeScript app (Vite); built into the nginx image, see "Front end"
 notebooks/      EDA, feature engineering, modelling, explainability (executed)
 tests/          pytest (DB / model / Redis tests skip if their service is not available)
 ```
@@ -164,11 +203,16 @@ tests/          pytest (DB / model / Redis tests skip if their service is not av
 |---|---|---|
 | GET | `/api/health` | database, cache and model status |
 | GET | `/api/model` | model version, threshold, metrics, category lists (for building the form) |
-| GET | `/api/customers` | `limit`, `offset`, `search` (username), `contract`, `churn` |
-| GET | `/api/customers/{id}` | one profile |
-| GET | `/api/customers/{id}/explanation` | stored score + SHAP + LIME (LIME computed on first view) |
-| GET | `/api/stats/overview` | totals, churn rate, churn by contract (cached 60 s) |
-| POST | `/api/predict` | form input -> churn label, probability, SHAP and LIME |
+| GET | `/api/customers` | each item carries `churn_probability` and `risk`. Filters: `search` (username), `contract`, `internet_service`, `churn` (observed outcome), `risk`, `tenure_min`, `tenure_max`. `sort`: `id`, `risk_desc/asc`, `tenure_desc/asc`, `charges_desc`. Paging: `limit`, `offset` |
+| GET | `/api/customers/{id}` | one profile, with its latest score |
+| GET | `/api/customers/{id}/explanation` | stored score + SHAP + LIME (LIME computed on first view), `predicted_at`, `risk` |
+| GET | `/api/stats/overview` | totals, observed churn, plus model-based average probability, high-risk count, risk bands, probability histogram and segments (cached 60 s) |
+| GET | `/api/predictions/recent` | latest simulator / form predictions (batch scores of stored customers are not "activity") |
+| POST | `/api/predict` | form input -> churn label, probability, `risk`, SHAP and LIME |
+
+Risk bands (`src/models/risk.py`, defined once): **low** < 20%, **medium** 20-50%, **high** ≥ 50% predicted
+probability. They are business-rule bands, separate from the model's F1-optimal decision threshold. On
+the training data observed churn is about 6% / 33% / 70% in the three bands.
 
 Interactive docs at `/docs`. Without a trained model the prediction endpoints return 503.
 

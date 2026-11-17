@@ -1,4 +1,6 @@
-# Applied automatically by `docker compose up` (development conveniences).
+# Applied automatically by `docker compose up` (development conveniences: database and Redis reachable
+# from tools on this computer). For front-end development run the Vite dev server instead of rebuilding
+# the image:  cd frontend && API_URL=http://127.0.0.1:8080 npm run dev
 # Skip it with:  docker compose -f docker-compose.yml up -d
 services:
   # Bound to 127.0.0.1 so other machines on the network cannot reach the database or the
@@ -10,7 +12,3 @@ services:
   redis:
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
-  frontend:
-    volumes:
-      # Edit frontend/ and just refresh the browser: no rebuild needed
-      - ./frontend:/usr/share/nginx/html:ro

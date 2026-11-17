@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://churn:churn_dev@localhost:5433/churn"
     raw_data_path: Path = ROOT / "data" / "raw" / "Telco-Customer-Churn.csv"
     model_dir: Path = ROOT / "models"
-    frontend_dir: Path = ROOT / "frontend"
 
     redis_url: str = "redis://localhost:6379/0"
     cache_ttl_seconds: int = 86400  # 24 h; keys also embed the model version

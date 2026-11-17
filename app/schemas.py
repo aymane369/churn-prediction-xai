@@ -1,8 +1,11 @@
 """Pydantic response / request models."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from src.models.risk import Risk
 
 ThreeState = Literal["Yes", "No", "No internet service"]
 
@@ -32,7 +35,10 @@ class CustomerOut(BaseModel):
     payment_method: str
     monthly_charges: float
     total_charges: float
-    churn: bool
+    churn: bool  # observed outcome in the dataset (not a prediction)
+    # Latest model prediction for the active model version (None if the model/scores are unavailable)
+    churn_probability: float | None = None
+    risk: Risk | None = None
 
 
 class CustomerPage(BaseModel):
@@ -48,12 +54,62 @@ class ContractStat(BaseModel):
     churn_rate: float
 
 
+class RiskBandStat(BaseModel):
+    band: Risk
+    customers: int
+    avg_probability: float
+    observed_churn_rate: float  # in-sample: these customers were in the training data
+
+
+class HistogramBin(BaseModel):
+    lower: float
+    upper: float
+    customers: int
+
+
+class Segment(BaseModel):
+    dimension: Literal["contract", "internet_service", "tenure"]
+    value: str
+    customers: int
+    avg_probability: float
+    observed_churn_rate: float
+    high_risk_share: float
+
+
+class RiskThresholds(BaseModel):
+    low_max: float
+    high_min: float
+    decision_threshold: float  # the model's churn / no-churn cut-off (F1-optimal), not a risk band
+
+
 class Overview(BaseModel):
     customers: int
-    churned: int
-    churn_rate: float
+    churned: int  # observed in the dataset
+    churn_rate: float  # observed
     avg_monthly_charges: float
     by_contract: list[ContractStat]
+    # Model-based fields: None / empty when no model or no scores are available
+    model_version: str | None = None
+    avg_probability: float | None = None
+    high_risk_customers: int | None = None
+    risk_thresholds: RiskThresholds | None = None
+    risk_distribution: list[RiskBandStat] = []
+    probability_histogram: list[HistogramBin] = []
+    segments: list[Segment] = []
+
+
+class RecentPrediction(BaseModel):
+    id: int
+    created_at: datetime
+    probability: float
+    churn: bool
+    risk: Risk
+    model_version: str
+    # Subset of the submitted attributes, for display
+    contract: str | None = None
+    tenure: int | None = None
+    monthly_charges: float | None = None
+    internet_service: str | None = None
 
 
 class PredictionInput(BaseModel):
@@ -103,7 +159,9 @@ class PredictionOut(BaseModel):
     prediction_id: int
     churn: bool
     probability: float
+    risk: Risk
     threshold: float
     model_version: str
+    predicted_at: datetime  # when this prediction was stored
     cached: bool  # served from Redis (form) or already stored in PostgreSQL (customer)
     explanations: list[ExplanationOut]

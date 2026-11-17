@@ -5,7 +5,7 @@
 #   init: one-shot job (ingest -> train if no model -> precompute); backend waits for it.
 #
 # docker-compose.override.yml is applied automatically and adds dev conveniences (published DB and
-# Redis ports, live-mounted frontend/). For a production-like run without it:
+# Redis ports). For a production-like run without it:
 #   docker compose -f docker-compose.yml up -d --build
 
 # Fixed project name: without it Compose derives one from the folder name, so renaming or
