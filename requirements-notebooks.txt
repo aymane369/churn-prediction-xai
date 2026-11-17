@@ -1,0 +1,7 @@
+# Notebooks (EDA, feature engineering, modelling, explainability)
+-r requirements-ml.txt
+jupyterlab>=4.2
+ipykernel>=6.29
+seaborn>=0.13
+nbformat>=5.10
+nbclient>=0.10

@@ -86,6 +86,18 @@ pytest
 Use `127.0.0.1` rather than `localhost` (as `.env.example` does): on Windows `localhost` tries IPv6
 first, which adds ~0.2 s per request and makes connections to the loopback-only database ports very slow.
 
+## Notebooks
+
+Executed, with outputs saved (`pip install -r requirements-notebooks.txt`; notebooks 03 and 04 need the
+trained model from `python -m src.models.train`):
+
+| Notebook | Content | Key result |
+|---|---|---|
+| `01_eda` | data quality, class balance, churn by feature, associations | contract is the strongest signal (42.7% churn month-to-month vs 2.8% two-year); weak: gender, phone service |
+| `02_feature_engineering` | 10 candidate features tested with paired, repeated CV (test split untouched) | none helped (best +0.0004 PR-AUC; all together -0.0045), so the model keeps the 19 raw features |
+| `03_modeling` | model comparison, Optuna study, imbalance, threshold, held-out evaluation, bootstrap | tuning gains +0.043 CV PR-AUC over default XGBoost; lead over logistic regression is real but small (PR-AUC +0.033, 95% CI +0.013 to +0.054) |
+| `04_explainability` | global/local SHAP, LIME, SHAP-vs-LIME agreement, linear-model sanity check | SHAP exactly additive; SHAP and LIME agree on direction for 98% of top-5 features, on all top-3 features for only 32% of customers |
+
 ## Model
 
 Trained on the 7,043-customer Telco dataset with an 80/20 stratified split. Candidates are compared
@@ -103,7 +115,7 @@ logistic-regression baseline, not a large one. Full metrics, parameters and libr
 `models/metadata.json` (also served at `GET /api/model`).
 
 The model is trained on the 19 raw customer attributes, so SHAP and LIME explain exactly the fields a
-user fills in on the prediction form.
+user fills in on the prediction form. Engineered features were tested and did not help (`02`).
 
 ## Explainability
 
@@ -142,6 +154,7 @@ src/models/     train, evaluate, predict (artefact loading), service (cache + DB
 src/explain/    SHAP and LIME explainers
 src/utils/      config, Redis cache helper
 frontend/       vanilla HTML/CSS/JS; mounted at / automatically once index.html exists
+notebooks/      EDA, feature engineering, modelling, explainability (executed)
 tests/          pytest (DB / model / Redis tests skip if their service is not available)
 ```
 
