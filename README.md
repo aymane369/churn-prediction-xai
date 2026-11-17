@@ -1,7 +1,11 @@
 # churn-prediction-xai
 
 Customer churn prediction with explainable AI (SHAP, LIME), PostgreSQL storage, a Redis cache and a
-React + TypeScript front end served by nginx.
+React + TypeScript front end ("Tessera") served by nginx. Every score comes with the reasons behind it.
+
+<p align="center">
+  <img src="docs/screenshots/landing.webp" alt="Tessera landing page: a ring of customer avatars orbiting a churn-probability gauge, with a tag showing the hovered customer's predicted churn" width="900">
+</p>
 
 ## Status
 
@@ -11,6 +15,44 @@ React + TypeScript front end served by nginx.
 | 2 | XGBoost model, SHAP + LIME, Redis cache, `/api/predict`, customer explanations | done |
 | 2b | Counterfactuals ("what would change this prediction?") with DiCE | not started |
 | 3 | Front end (`frontend/`): landing, dashboard, customer directory, profile with SHAP, what-if simulator | done |
+
+## Screenshots
+
+Captured with headless Chrome from the Docker stack below, so they show the real data and the deployed
+model. The "Latest simulations" rows on the dashboard are real calls to `/api/predict`.
+
+**Dashboard.** Predicted risk (marked "Model estimate") is kept apart from the churn recorded in the
+dataset (marked "Observed"); below them the risk distribution, segments, recent simulations and insights
+computed from the live numbers.
+
+<img src="docs/screenshots/dashboard.webp" alt="Dashboard with the animated header illustration, KPI tiles, predicted-risk histogram, segments, risk bands, latest simulations and retention insights" width="900">
+
+**Customer directory.** Pseudonymous customers with generated avatars; search, filters and sort live in
+the URL, so a view can be shared or bookmarked.
+
+<img src="docs/screenshots/customers.webp" alt="Customer directory filtered to high-risk customers, shown as cards" width="900">
+
+**Customer profile.** The model's prediction and the observed outcome are separate cards, never merged.
+
+<img src="docs/screenshots/profile.webp" alt="Customer profile with a churn-probability gauge, risk band and the separate observed outcome" width="900">
+
+**Why the model predicts it.** The SHAP waterfall runs from the model's baseline to this customer's
+prediction in log-odds, with the odds multiplier next to each step; LIME is one tab away as a cross-check.
+
+<img src="docs/screenshots/shap.webp" alt="SHAP waterfall from the 26.5% baseline to a 65.4% prediction, with lists of the features pushing risk up and down" width="900">
+
+**What-if simulator.** Change a customer's attributes, ask the backend for a new prediction and see how
+the explanation moves. Results are labelled hypothetical, not forecasts.
+
+<img src="docs/screenshots/simulator.webp" alt="Simulator comparing the original 65% estimate with a simulated 23% after switching to a one-year contract" width="900">
+
+**Explainability, on the landing page.** A real prediction explained, with the reading guide built in.
+
+<img src="docs/screenshots/landing-explainability.webp" alt="Landing page section showing a real SHAP waterfall next to a short explanation" width="900">
+
+**On a phone.** Landing, dashboard and the SHAP waterfall, which stacks into one row per feature.
+
+<img src="docs/screenshots/mobile.webp" alt="Three phone screens: landing page, dashboard header, and the SHAP waterfall laid out vertically" width="900">
 
 ## Requirements
 
@@ -94,7 +136,7 @@ also proxies `/api` (one origin, no CORS) and adds a Content-Security-Policy.
 | Route | What it shows |
 |---|---|
 | `/` | Landing page. The hero uses real customers and real model scores (a clearly labelled "illustrative sample" appears only if the API is unreachable) |
-| `/dashboard` | KPIs, risk distribution, segments (drill into the directory), recent simulations, insights computed from the live numbers |
+| `/dashboard` | KPIs, risk distribution, segments (drill into the directory), recent simulations, insights computed from the live numbers. The header illustration is animated (see `scripts/prepare_churn_illustration.py`) |
 | `/customers` | Searchable directory, cards or table, filters kept in the URL, server-side sort and paging |
 | `/customers/:id` | Profile: prediction vs observed outcome, SHAP waterfall, LIME cross-check, rule-based retention suggestions |
 | `/simulator` | What-if: edit attributes, ask the backend for a new prediction, compare SHAP before and after |
@@ -110,6 +152,8 @@ Things the UI is careful about:
 - **Accessibility**: skip link, visible focus rings, text colours measured at ≥ 4.5:1 on the page colours,
   chart data also available as tables, `prefers-reduced-motion` respected.
 - **Pseudonyms**: customers are shown by the generated `@username` and avatar, never as a "real name".
+- **Hero avatars are hoverable and keyboard-focusable**: the orbit pauses on hover or focus, and each
+  avatar shows its own predicted churn in a small tag that travels with it.
 
 Development (Node 22+):
 
@@ -123,7 +167,16 @@ npm test           # Vitest: SHAP maths, URL state, simulator rules, suggestion 
 npm run build      # type-check, then build to frontend/dist
 ```
 
-Assets, fonts and libraries, with their licences: [ATTRIBUTION.md](ATTRIBUTION.md).
+Assets, fonts and libraries, with their licences: [ATTRIBUTION.md](ATTRIBUTION.md). The dashboard
+illustration (`Churn.png`) is the project owner's own supplied file; its author and licence are not yet
+recorded there.
+
+## Tests
+
+| Suite | Command | Tests | Needs |
+|---|---|---|---|
+| Backend (pytest) | `pytest` | 48 | Tests that need Postgres, Redis or a trained model skip when that service is not available; the stats and prediction tests clean up the rows they create |
+| Front end (Vitest) | `cd frontend && npm test` | 37 | Nothing running: SHAP maths, URL state, simulator rules, suggestion rules |
 
 ## Notebooks
 
@@ -189,12 +242,16 @@ app/            FastAPI app (api.py) and Pydantic schemas
 src/db/         SQLAlchemy models (customers, predictions, explanations[JSONB]), session
 src/data/       load -> preprocess -> identity (username + avatar seed) -> ingest
 src/features/   model input definition and display labels
-src/models/     train, evaluate, predict (artefact loading), service (cache + DB), precompute
+src/models/     train, evaluate, predict (artefact loading), service (cache + DB), risk bands, precompute
 src/explain/    SHAP and LIME explainers
 src/utils/      config, Redis cache helper
 frontend/       React + TypeScript app (Vite); built into the nginx image, see "Front end"
+docker/         frontend image (multi-stage build) and the nginx config: SPA fallback, /api proxy, CSP
+scripts/        prepare_churn_illustration.py: splits Churn.png into transparent, animatable layers
 notebooks/      EDA, feature engineering, modelling, explainability (executed)
 tests/          pytest (DB / model / Redis tests skip if their service is not available)
+docs/           screenshots used in this README
+ATTRIBUTION.md  licences of the fonts, icons, avatars and the illustration used by the front end
 ```
 
 ## API
