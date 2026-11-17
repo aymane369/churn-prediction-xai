@@ -132,7 +132,7 @@ export default function Landing() {
             initial={reduce ? false : { opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-            className="px-6 pb-20 sm:px-8 sm:pb-10"
+            className="px-6 sm:px-8"
           >
             <Constellation members={members} live={live} />
           </motion.div>
